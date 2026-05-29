@@ -33,23 +33,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Pre-download the model and processor during image build.
-# This prevents Cloud Run from downloading model files into the runtime writable filesystem.
-RUN mkdir -p /opt/hf_cache && python - <<'PY'
-import os
-from transformers import OneFormerProcessor, OneFormerForUniversalSegmentation
+RUN mkdir -p /opt/hf_cache \
+    && python -c "import os; from transformers import OneFormerProcessor, OneFormerForUniversalSegmentation; model_id=os.environ.get('MODEL_ID','shi-labs/oneformer_coco_swin_large'); print(f'Pre-downloading model during Docker build: {model_id}', flush=True); OneFormerProcessor.from_pretrained(model_id); OneFormerForUniversalSegmentation.from_pretrained(model_id); print('Model and processor cached successfully.', flush=True)"
 
-model_id = os.environ.get("MODEL_ID", "shi-labs/oneformer_coco_swin_large")
-print(f"Pre-downloading model during Docker build: {model_id}", flush=True)
-
-OneFormerProcessor.from_pretrained(model_id)
-OneFormerForUniversalSegmentation.from_pretrained(model_id)
-
-print("Model and processor cached successfully.", flush=True)
-PY
-
-# After the model is cached in the image, prevent unexpected online downloads at runtime.
 ENV TRANSFORMERS_OFFLINE=1 \
+    HF_HUB_OFFLINE=1 \
     HF_DATASETS_OFFLINE=1
 
 COPY main.py .
