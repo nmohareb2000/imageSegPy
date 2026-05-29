@@ -13,3 +13,4 @@ transformers>=4.44.0
 accelerate>=0.31.0
 timm>=0.9.16
 safetensors>=0.4.3
+huggingface_hub[hf_xet]>=0.26.0
