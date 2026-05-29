@@ -1,0 +1,15 @@
+--index-url https://download.pytorch.org/whl/cpu
+--extra-index-url https://pypi.org/simple
+
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+pydantic>=2.7.0
+Pillow>=10.3.0
+numpy>=1.26.4
+torch
+torchvision
+transformers>=4.44.0
+accelerate>=0.31.0
+timm>=0.9.16
+safetensors>=0.4.3
