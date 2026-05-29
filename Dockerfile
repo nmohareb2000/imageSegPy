@@ -34,7 +34,7 @@ RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
 RUN mkdir -p /opt/hf_cache \
-    && python -c "import os; from transformers import OneFormerProcessor, OneFormerForUniversalSegmentation; model_id=os.environ.get('MODEL_ID','shi-labs/oneformer_coco_swin_large'); print(f'Pre-downloading model during Docker build: {model_id}', flush=True); OneFormerProcessor.from_pretrained(model_id); OneFormerForUniversalSegmentation.from_pretrained(model_id); print('Model and processor cached successfully.', flush=True)"
+    && python -c "import os; from transformers import OneFormerProcessor, OneFormerForUniversalSegmentation; model_id=os.environ.get('MODEL_ID','shi-labs/oneformer_coco_swin_large'); print('Pre-downloading model during Docker build: ' + model_id, flush=True); OneFormerProcessor.from_pretrained(model_id); OneFormerForUniversalSegmentation.from_pretrained(model_id); print('Model and processor cached successfully.', flush=True)"
 
 ENV TRANSFORMERS_OFFLINE=1 \
     HF_HUB_OFFLINE=1 \
