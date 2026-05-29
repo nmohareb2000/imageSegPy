@@ -2,7 +2,7 @@
 FastAPI service for OneFormer panoptic segmentation and object counting.
 
 Designed for Google Cloud Run:
-- The model is loaded once per Cloud Run container instance at startup.
+- The web server starts quickly on Cloud Run. The model is loaded lazily on the first analysis request.
 - The API accepts either multipart image upload or base64 JSON.
 - The response returns area-by-label, thing-object counts, instance boxes, and
   optionally a base64 overlay image with segmentation + bounding boxes.
@@ -49,8 +49,10 @@ DEFAULT_MAX_BOXES = int(os.getenv("MAX_BOXES", "150"))
 CPU_THREADS = int(os.getenv("TORCH_NUM_THREADS", "1"))
 torch.set_num_threads(max(1, CPU_THREADS))
 
-# Use a lock because this model is large. This prevents two heavy inferences from
-# running simultaneously inside the same container.
+# Use locks because this model is large. MODEL_LOAD_LOCK prevents two requests
+# from loading the model at the same time. INFERENCE_LOCK prevents two heavy
+# inferences from running simultaneously inside the same container.
+MODEL_LOAD_LOCK = threading.Lock()
 INFERENCE_LOCK = threading.Lock()
 
 
@@ -89,26 +91,40 @@ state = ModelState()
 
 
 def load_model_once() -> None:
-    """Load the processor and model once per container instance."""
+    """Load the processor and model once per container instance.
+
+    Important for Cloud Run:
+    This function is intentionally NOT called during FastAPI startup. Cloud Run
+    first needs the web server to start and listen on PORT=8080. The model is
+    therefore loaded lazily when the first /analyze request is received.
+    """
     if state.loaded:
         return
 
-    state.device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Loading model: {MODEL_ID}")
-    print(f"Device: {state.device}")
+    with MODEL_LOAD_LOCK:
+        if state.loaded:
+            return
 
-    state.processor = OneFormerProcessor.from_pretrained(MODEL_ID)
-    state.model = OneFormerForUniversalSegmentation.from_pretrained(MODEL_ID)
-    state.model.to(state.device)
-    state.model.eval()
+        state.device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Loading model lazily: {MODEL_ID}", flush=True)
+        print(f"Device: {state.device}", flush=True)
 
-    state.loaded = True
-    print("Model loaded successfully.")
+        state.processor = OneFormerProcessor.from_pretrained(MODEL_ID)
+        state.model = OneFormerForUniversalSegmentation.from_pretrained(MODEL_ID)
+        state.model.to(state.device)
+        state.model.eval()
+
+        state.loaded = True
+        print("Model loaded successfully.", flush=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    load_model_once()
+    """Start FastAPI quickly so Cloud Run can mark the container as ready."""
+    print(
+        "Cloud Run container started. Model will be loaded lazily on the first analysis request.",
+        flush=True,
+    )
     yield
 
 
